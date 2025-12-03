@@ -7,7 +7,6 @@ from PIL import Image, ImageOps
 import io
 import os
 import time
-import shutil
 
 app = FastAPI()
 
@@ -48,8 +47,7 @@ model = models.mobilenet_v2(weights=None)
 # Ubah layer classifier terakhir agar outputnya 7 kelas
 model.classifier[1] = nn.Linear(model.last_channel, 7)
 
-# GANTI INI dengan nama file .pth kamu yang asli
-# MODEL_FILENAME = "mobilenetv2_rupiah.pth" 
+# Model file
 MODEL_FILENAME = "best_model.pth" 
 
 try:
@@ -85,7 +83,7 @@ async def predict(file: UploadFile = File(...)):
         # --- A. BACA FILE ---
         image_bytes = await file.read()
         
-        # --- B. SIMPAN GAMBAR KE FOLDER (Request Kamu) ---
+        # --- B. SIMPAN GAMBAR KE FOLDER ---
         # Buat nama file unik pakai timestamp biar gak ketimpa
         filename = f"scan_{int(time.time())}_{file.filename}"
         file_path = os.path.join(UPLOAD_DIR, filename)
@@ -102,8 +100,8 @@ async def predict(file: UploadFile = File(...)):
         # Fix Rotasi HP (Wajib biar akurat)
         img = ImageOps.exif_transpose(img)
         img = img.convert('RGB')
-
-        # Transform ke Tensor
+        
+        # Apply transforms
         input_tensor = data_transform(img).unsqueeze(0).to(device)
 
         # --- D. PREDIKSI ---
@@ -111,21 +109,23 @@ async def predict(file: UploadFile = File(...)):
             outputs = model(input_tensor)
             probabilities = torch.nn.functional.softmax(outputs, dim=1)
             
+            # Ambil nilai tertinggi
             confidence, predicted_idx = torch.max(probabilities, 1)
             
-            idx = predicted_idx.item()
-            score = confidence.item() * 100
+            idx = predicted_idx.item()     # Index kelas (0-6)
+            score = confidence.item() * 100 # Persentase (0-100)
             
             result_data = CLASS_INFO[idx]
 
+            # Debugging di Terminal
             print(f"📸 Prediksi: {result_data['label']} ({score:.1f}%)")
 
             return {
                 "success": True,
                 "label": result_data["label"],
                 "value": result_data["value"],
-                "confidence": round(score, 0),
-                "saved_as": filename # Info nama file yang disimpan
+                "confidence": round(score, 1),
+                "saved_as": filename
             }
 
     except Exception as e:

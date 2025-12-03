@@ -1,2 +1,11 @@
-/uploaded_images
 /wa
+/uploaded_images/*
+!uploaded_images/.gitkeep
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+fly.toml
+.fly/
